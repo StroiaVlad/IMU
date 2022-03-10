@@ -12,5 +12,5 @@ withNoise = True #add noise to it
 if __name__ == '__main__':
     folderPath, filePath = getDatasetPath(chosenDataset, withNoise)
     print(folderPath, filePath)
-    Fs, P0, V0, E0, df = getDataframe(filePath)
-    print(df.head())
+    Fs, P0, V0, E0, y = getDataframe(filePath)
+    print(y.head(), len(y))

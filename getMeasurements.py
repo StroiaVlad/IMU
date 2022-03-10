@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 import pandas as pd
 
 def getDatasetPath(chosenDataset, withNoise):
@@ -15,10 +17,10 @@ def getDatasetPath(chosenDataset, withNoise):
 def getDataframe(filePath):
     with open(filePath, 'r') as f: # firstly open the text file for reading (r)
         contents = f.readlines() # read all the lines of the text file and return them as a list of strings
-    Fs = [] #sampling frequency
-    P0 = [] #initial position of IMU
-    V0 = [] #initial velocity of IMU
-    E0 = [] #initial Euler Angles
+    Fs = np.zeros(shape=[1]) #sampling frequency
+    P0 = np.zeros(shape=[1, 3]) #initial position of IMU
+    V0 = np.zeros(shape=[1, 3]) #initial velocity of IMU
+    E0 = np.zeros(shape=[1, 3]) #initial Euler Angles
     tempMeasurements = []
     indexStartMeasurements = []
     for index, line in enumerate(contents):
@@ -26,19 +28,16 @@ def getDataframe(filePath):
             tempMeasurements.append(contents[index])
             continue
         if line.find("# Sampling frequency (Hz) :") >= 0: # if "# Sampling frequency (Hz) :" string is found, update Fs
-            Fs.append(float(contents[index + 1]))
+            Fs[0] = float(contents[index + 1])
             continue
         if line.find("# IMU initial position :") >= 0: # if "# IMU initial position :" string is found, update P0
-            P0.append(contents[index + 1])
-            P0 = P0[0]
+            P0[0] = eval(contents[index + 1])
             continue
         if line.find("# IMU initial velocity :") >= 0: # if "# IMU initial velocity :" string is found, update V0
-            V0.append(contents[index + 1])
-            V0 = V0[0]
+            V0[0] = eval(contents[index + 1])
             continue
         if line.find("# IMU initial Euler's angles :") >= 0: # if "## IMU initial Euler's angles :" update E0
-            E0.append(contents[index + 1])
-            E0 = E0[0]
+            E0[0] = eval(contents[index + 1])
         if line.find("Time (GPS)") >= 0: # if "Time (GPS) :" update indexStartMeasurements
             indexStartMeasurements.append(index)
             tempMeasurements.append(contents[index])
