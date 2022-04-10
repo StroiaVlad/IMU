@@ -28,7 +28,7 @@ if __name__ == '__main__':
     R = y.iloc[:, 1:].cov()  # measurements covariance matrix
     KF = KalmanFilter(P0, V0, E0, R, dt)  # Instantiating the KF object that implements the apriori and aposteriori steps of Kalman Filtering
     state = KF.estimation(KF, measurementsNumpied, GPS_time, observations)  # estimate the state vector and covariance matrix from the Kalman Filter
-    #print(state)                                                            # print the state
+    print(state)                                                            # print the state
 
     T = np.arange(0, int(y.shape[0] / Fs[0]), 1 / Fs[0])
     plotPosition(T, state)

@@ -22,6 +22,8 @@ def plotPosition(T, state):
     ax3.tick_params(axis='x', labelsize = 15)
     ax3.tick_params(axis='y', labelsize = 15)
 
+    fig1.savefig("position.png")
+
 
 def plotVelocity(T, state):
     fig2, ((ax1, ax2), (ax3, ax4)) = mpl.subplots(2, 2, figsize=(15, 10))
@@ -50,6 +52,8 @@ def plotVelocity(T, state):
     ax4.tick_params(axis='x', labelsize=15)
     ax4.tick_params(axis='y', labelsize=15)
 
+    fig2.savefig("velocity.png")
+
 def plotAttitude(T, state):
     fig3, (ax1, ax2, ax3) = mpl.subplots(1, 3, figsize=(20, 5))
 
@@ -70,15 +74,17 @@ def plotAttitude(T, state):
     ax3.tick_params(axis='x', labelsize=15)
     ax3.tick_params(axis='y', labelsize=15)
 
+    fig3.savefig("attitude.png")
+
 def plotProfile(T, state):
     LLA = np.ones([3, state.shape[1]])
     for index in range(0, int(LLA.shape[1])):
-        [phi, lamda, h] = ECEF2LLA(state[:, index])
+        [phi, lamda, h] = ECEF2LLA(state[0:3, index])
         LLA[0, index] = phi
         LLA[1, index] = lamda
         LLA[2, index] = (h / 1000 + 6356.75231425) * 3.28084  # to convert to km, subtract the radius of the earth and then convert to ft
 
-    print(LLA)
+    #print(LLA)
     fig4, ((ax1, ax2), (ax3, ax4)) = mpl.subplots(2, 2, figsize=(15, 10))
 
     ax1.plot(T, LLA[0, :], linewidth=2.0)
@@ -104,6 +110,8 @@ def plotProfile(T, state):
     ax4.set_xlabel(r'$Long^\circ$', fontsize=20)
     ax4.tick_params(axis='x', labelsize=15)
     ax4.tick_params(axis='y', labelsize=15)
+
+    fig4.savefig("profile.png")
 
     mpl.show()
 

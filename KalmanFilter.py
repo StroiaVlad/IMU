@@ -24,8 +24,9 @@ class KalmanFilter:
                            [0, 0, 0, 0, dt, 0],
                            [0, 0, 0, 0, 0, dt]])
         self.n = np.shape(self.A)[0]  # row dimension of the A matrix (9 states)
-        self.x_initial = np.array([P0[0], V0[0], E0[0]]).reshape(self.n, 1)  # the state vector X from the previous iteration
-        self.x = np.array([P0[0], V0[0], E0[0]]).reshape(self.n, 1)  # the state vector X as a 9x1 vector [x, y, z, vx, vy, vz, phi, theta, psi].T
+        self.x_initial = np.array([P0[0], V0[0], E0[0]]).reshape(self.n, 1)  # the state vector x from the previous iteration
+        pos_ECEF = LLA2ECEF(P0[0]) # the initial position of the user is given into LLA, it must be converted into ECEF
+        self.x = np.array([pos_ECEF, V0[0], E0[0]]).reshape(self.n, 1)  # the state vector X as a 9x1 vector [x, y, z, vx, vy, vz, phi, theta, psi].T in ECEF frame
         # output matrix
         self.C = np.array([[2 / (dt ** 2), 0, 0, 1 / dt, 0, 0, 0, 0, 0],
                            [0, 2 / (dt ** 2), 0, 0, 1 / dt, 0, 0, 0, 0],
@@ -55,8 +56,8 @@ class KalmanFilter:
     def estimation(self, KF, y, GPS_time, observations):
         """estimation function returns the state vector containing all the states predicted by the KF Kalman Filter, based on the
         y measurements matrix and u input command vector"""
-        g = np.empty(shape=[3, 1])
-        state = np.empty(shape=[KF.n, 1])  # initializing the state covariance vector as a column vector of KF.n rows
+        g = np.empty(shape=[3, 1])  # g is the gravity matrix in ECEF frame, after a measurements is introduced a new 3x1 column vector added to this matrix
+        state = np.empty(shape=[KF.n, 1])  # initializing the state vector as a column vector of KF.n rows
         # covariance = np.empty(shape=[KF.n, 1])  # initializing the covariance matrix as a
         for index in range(0, y.shape[0]):  # iterating from 0 till the number of data points in the measurements matrix
             u = np.array(y[index].reshape(y.shape[1], 1))  # aprioriEstimation function requires an u column vector of shape (states measured by sensors)x1, that's why reshape is used
@@ -64,12 +65,14 @@ class KalmanFilter:
                 u[3:, :] = ECEF02ECEF(u[3:, :], GPS_time[index + 1] - GPS_time[index])  # converting the gyro data from ECEF0 to ECEF
             if index == y.shape[0] - 1:
                 u[3:, :] = ECEF02ECEF(u[3:, :], GPS_time[index] - GPS_time[index - 1])  # converting the gyro data from ECEF0 to ECEF
-            rot_ECEF2BODY = ECEF2body(u[0:3, :], KF.x[6][0], KF.x[7][0], KF.x[8][0])  # rotation matrix from ECEF to BODY
+
+            rot_ECEF2BODY = ECEF2body(KF.x[3:6], KF.x[6][0], KF.x[8][0], KF.x[7][0])  # rotation matrix from ECEF to BODY, since there is no body2ECEF function, the velocity states ECEF positions are used to derive the rotation matrix
             rot_ECEF2BODY = np.array(list(rot_ECEF2BODY[:, :]), dtype=np.float64)  # making a numpy array out of the rotation matrix
-            u[0:3, :] = np.dot(np.linalg.inv(rot_ECEF2BODY), u[0:3, :])  # converting the Specific force from BODY frame to ECEF frame
-            gravity_vector = np.array([[0], [0], [9.809792]])   # gravity vector in ENU frame
-            [phi_reference, lamda_reference, h_reference] = ECEF2LLA(gravity_vector)    #
-            rot_ECEF2ENU = np.zeros((3, 3)) # defining the rotation matrix
+            u[0:3, :] = np.dot(np.linalg.inv(rot_ECEF2BODY), u[0:3, :])  # converting the Specific force from BODY frame to ECEF frame by using the rot_ECEF2BODY
+
+            gravity_vector = np.array([[0], [0], [9.809792]])   # gravity vector given ENU frame
+            [phi_reference, lamda_reference, h_reference] = ECEF2LLA(KF.x[3:6])    # phi and lambda needed for ECEF to ENU rotation matrix, velocity states are used
+            rot_ECEF2ENU = np.zeros((3, 3)) # defining the rotation matrix from ECEF to ENU since there is no function ENU2ECEF in conversion
             rot_ECEF2ENU[0, :] = [-np.sin(lamda_reference), np.cos(lamda_reference), 0]
             rot_ECEF2ENU[1, :] = [-np.sin(phi_reference) * np.cos(lamda_reference),
                                   -np.sin(phi_reference) * np.sin(lamda_reference), np.cos(phi_reference)]
@@ -77,14 +80,15 @@ class KalmanFilter:
                                   np.cos(phi_reference) * np.sin(lamda_reference), np.sin(phi_reference)]
             gravity_ECEF = np.dot(np.linalg.inv(rot_ECEF2ENU), gravity_vector)  # converting the gravity vector from ENU to ECEF
             u[0:3, :] = u[0:3, :] + gravity_ECEF  # removing the gravity component from the accelerometer data
-            KF.aprioriEstimation(u)  # apply the apriori estimation to the KF
+
+            KF.aprioriEstimation(u)  # apply the apriori estimation to the KF after the specific force and gyro data have been converted to ECEF frame
             KF.aposterioriEstimation(observations)  # apply the aposteriori estimation to the KF
             state = np.concatenate([state, KF.x], axis=1)  # concatenate a new column of predicted state vector (KF.x) to the state => state vector becomes a state matrix
             KF.x_initial = KF.x  # updating the KF.x_initial to the currently estimated KF.x
-            g = np.concatenate([g, gravity_ECEF], axis=1)
+            g = np.concatenate([g, gravity_ECEF], axis=1)   # gravity_ECEF for this measurement is concatenated to the g matrix
             # covariance = np.concatenate([state, KF.P], axis=1)
-        state = np.delete(state, 0, axis=1)
-        g = np.delete(g, 0, axis=1)
+        state = np.delete(state, 0, axis=1) # delete the first column due to the fact that np.empty function initializes the first column with random elements
+        g = np.delete(g, 0, axis=1)         # delete the first column due to the fact that np.empty function initializes the first column with random elements
         print(g)
         # covariance = np.delete(covariance, 0, axis=1)
         return state
