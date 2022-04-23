@@ -4,8 +4,9 @@ from conversion import *
 from results import *
 
 # User specified chosenDataset and withNoise flag
-chosenDataset = 1  # specify which Trajectory dataset to use
-withNoise = True  # Do you want noise to your data or not?
+chosenDataset = 9 # specify which Trajectory dataset to use
+withNoise = False  # Do you want noise to your data or not?
+withGNSS = False # Do you want to hybridize with GNSS data?
 
 # Press the green button in the gutter to run the script
 if __name__ == '__main__':
@@ -27,10 +28,11 @@ if __name__ == '__main__':
 
     R = y.iloc[:, 1:].cov()  # measurements covariance matrix
     KF = KalmanFilter(P0, V0, E0, R, dt)  # Instantiating the KF object that implements the apriori and aposteriori steps of Kalman Filtering
-    state = KF.estimation(KF, measurementsNumpied, GPS_time, observations)  # estimate the state vector and covariance matrix from the Kalman Filter
-    print(state)                                                            # print the state
+    state = KF.estimation(KF, measurementsNumpied, GPS_time, observations, dt)  # estimate the state vector and covariance matrix from the Kalman Filter
+    #print(state)                                                            # print the state
 
-    T = np.arange(0, int(y.shape[0] / Fs[0]), 1 / Fs[0])
+    T = np.arange(0, y.shape[0] / Fs[0], 1 / Fs[0])
+    #print(T.shape)
     plotPosition(T, state)
     plotVelocity(T, state)
     plotAttitude(T, state)

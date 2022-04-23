@@ -9,7 +9,7 @@ ECEF0
 # IMU technology :
 strapdown
 # IMU initial position :
-[0, 0, 0]
+[6378137.       0.       0.]
 # IMU initial velocity :
 [0, 0, 0]
 # IMU initial Euler's angles :
