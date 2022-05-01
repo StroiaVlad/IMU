@@ -1,37 +1,38 @@
-from getMeasurements import getDatasetPath, getDataframe
+from getMeasurements import getDatasetPath, getDataframeIMU, getDataframeGNSS
 from KalmanFilter import *
 from conversion import *
 from results import *
 
 # User specified chosenDataset and withNoise flag
-chosenDataset = 9 # specify which Trajectory dataset to use
+chosenDataset = 2 # specify which Trajectory dataset to use
 withNoise = False  # Do you want noise to your data or not?
 withGNSS = False # Do you want to hybridize with GNSS data?
 
 # Press the green button in the gutter to run the script
 if __name__ == '__main__':
-    folderPath, filePath = getDatasetPath(chosenDataset, withNoise)  # get the folderPath and filePath of the chosen Trajectory dataset
-    print(folderPath, filePath)  # check whether the folderPath and filePath are what they should be
-    Fs, P0, V0, E0, y = getDataframe(filePath)  # get the most relevant parameters out of the text file, note that y is the dataframe of measurements
-    dt = 1 / Fs[0]  # the time increment used for Kalman Filtering apriori estimation
-    print(y.shape)  # check if the measurements dataframe is the intended shape
-    measurements = y.iloc[:, 1:]  # observations is a new DataFrame which contains all the rows and columns of y, but except the "Time GPS" columns
-    measurementsNumpied = measurements.to_numpy()  # convert the observations DataFrame into a numpy array
-    GPS_time = y.iloc[:, 0]  # GPS time fron the dataset
+    folderPath, filePathIMU, filePathGNSS = getDatasetPath(chosenDataset, withNoise, withGNSS)  # get the folderPath and filePath of the chosen Trajectory dataset
+    print(folderPath, filePathIMU)  # check whether the folderPath and filePath are what they should be
+    Fs_IMU, P0, V0, E0, u = getDataframeIMU(filePathIMU)  # get the most relevant parameters out of the text file, note that u is the dataframe of measurements
+    dt = 1 / Fs_IMU[0]  # the time increment used for Kalman Filtering apriori estimation
+    print(u.shape)  # check if the measurements dataframe is the intended shape
+    measurements = u.iloc[:, 1:]  # measurements is a new DataFrame which contains all the rows and columns of u, but except the "Time GPS" columns
+    measurementsNumpied = measurements.to_numpy()  # convert the measurements DataFrame into a numpy array
+    GPS_time_IMU = u.iloc[:, 0]  # GPS time from the IMU dataset
 
-    observations = 0 * np.ones([measurementsNumpied.shape[1], 1])  # initializing the input command vector as a 6x1 numpy array
-    # rot_matrix = ECEF2body(u[0:3, :], E0[0][0], E0[0][1], E0[0][2]) # rotation matrix from ECEF to BODY
-    # rot_matrix = np.array(list(rot_matrix[:, :]), dtype=np.float64) # making a numpy array
-    # u[0:3, :] = np.dot(np.linalg.inv(rot_matrix), u[0:3, :]) # converting the Specific force from BODY frame to ECEF frame
-    # u[2, :] = u[2, :] + 9.809792 # removing the gravity component from the accelerometer data
-    # u[3:, :] = ECEF2ECEF0(u[3:, :], GPS_time[0]) # converting the gyro data from ECEF0 to ECEF
+    Fs_GNSS, y = getDataframeGNSS(filePathGNSS)  # get the most relevant parameters out of the text file, note that y is the dataframe of measurements
+    observations, observationsNumpied, GPS_time_GNSS = None, None, None
+    if bool(Fs_GNSS):
+        print(y.shape)  # check if the measurements dataframe is the intended shape
+        observations = y.iloc[:, 1:]  # observations is a new DataFrame which contains all the rows and columns of y, but except the "Time GPS" columns
+        observationsNumpied = observations.to_numpy()  # convert the observations DataFrame into a numpy array
+        GPS_time_GNSS = y.iloc[:, 0]  # GPS time from the GNSS dataset
 
-    R = y.iloc[:, 1:].cov()  # measurements covariance matrix
+    R = u.iloc[:, 1:].cov()  # measurements covariance matrix
     KF = KalmanFilter(P0, V0, E0, R, dt)  # Instantiating the KF object that implements the apriori and aposteriori steps of Kalman Filtering
-    state = KF.estimation(KF, measurementsNumpied, GPS_time, observations, dt)  # estimate the state vector and covariance matrix from the Kalman Filter
-    #print(state)                                                            # print the state
+    state = KF.estimation(KF, measurementsNumpied, GPS_time_IMU, dt, withGNSS, observationsNumpied, GPS_time_GNSS)  # estimate the state vector and covariance matrix from the Kalman Filter
+    print(state[0, :])                                                            # print the state
 
-    T = np.arange(0, y.shape[0] / Fs[0], 1 / Fs[0])
+    T = np.arange(0, u.shape[0] / Fs_IMU[0], 1 / Fs_IMU[0])
     #print(T.shape)
     plotPosition(T, state)
     plotVelocity(T, state)
